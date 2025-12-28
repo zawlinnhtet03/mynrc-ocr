@@ -182,9 +182,19 @@ with col2:
         fields = res.get("field_texts", {})
         st.json(fields)
 
+        rotation_steps_raw = res.get("rotation_ccw_steps", None)
+        if rotation_steps_raw is None:
+            st.warning("Backend did not return 'rotation_ccw_steps'. Redeploy the Modal backend or verify you're calling the updated endpoint.")
+        else:
+            st.caption(f"rotation_ccw_steps: {rotation_steps_raw}")
+
         # 2️⃣ Bounding box visualization
         if uploaded and "detections" in res:
             debug_img = img.copy()
+            rotation_steps = int(res.get("rotation_ccw_steps") or 0)
+            rotation_steps = rotation_steps % 4
+            if rotation_steps:
+                debug_img = debug_img.rotate(90 * rotation_steps, expand=True)
             draw = ImageDraw.Draw(debug_img)
 
             for det in res["detections"]:
