@@ -13,6 +13,7 @@ load_dotenv()
 st.set_page_config(page_title="KYC API Tester", layout="wide")
 
 API_URL = os.getenv("API_URL")
+API_KEY = os.getenv("OCR_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
@@ -25,6 +26,12 @@ if not API_URL:
 if not SUPABASE_URL or not SUPABASE_ANON_KEY:
     st.error(
         "Supabase credentials (SUPABASE_URL and SUPABASE_ANON_KEY) are required to use this app."
+    )
+    st.stop()
+
+if API_KEY is None or str(API_KEY).strip() == "":
+    st.error(
+        "OCR_API_KEY environment variable is not set. Configure it before calling the API."
     )
     st.stop()
 
@@ -103,6 +110,7 @@ st.title("Dinger KYC • API Integration Test")
 ensure_authenticated()
 
 with st.sidebar:
+    st.caption("API key: configured" if API_KEY else "API key: missing")
     st.caption(
         f"Signed in as **{st.session_state['auth_user']['email']}**"
         if st.session_state["auth_user"]
@@ -117,6 +125,8 @@ def call_modal_api(payload):
     headers = {
         "Content-Type": "application/octet-stream"
     }
+    if API_KEY is not None and str(API_KEY).strip() != "":
+        headers["Authorization"] = f"Bearer {API_KEY}"
 
     for attempt in range(RETRIES + 1):
         try:
