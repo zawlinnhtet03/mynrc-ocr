@@ -150,37 +150,68 @@ with col1:
     if uploaded:
         img = Image.open(uploaded).convert("RGB")
 
-        # Resize image 
+        # Resize image
         if max(img.size) > MAX_IMAGE_SIZE:
             img.thumbnail((MAX_IMAGE_SIZE, MAX_IMAGE_SIZE))
 
         st.image(img, caption="Input Image", use_column_width=True)
 
-        if st.button("Simulate Request"):
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format="JPEG", quality=85)
-            payload = img_byte_arr.getvalue()
+        # Store uploaded file and img in session state for use in col2
+        st.session_state["uploaded_file"] = uploaded
+        st.session_state["img"] = img
 
-            st.write(f"Payload size: {len(payload) / 1024:.1f} KB")
+        # Run simulation automatically on upload
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format="JPEG", quality=85)
+        payload = img_byte_arr.getvalue()
 
-            with st.spinner("Sending request to API..."):
-                try:
-                    response = call_modal_api(payload)
+        st.write(f"Payload size: {len(payload) / 1024:.1f} KB")
 
-                    if response.status_code == 200:
-                        data = response.json()
-                        st.session_state["results"] = data
-                        st.success(
-                            f"Success! Time: {response.elapsed.total_seconds():.2f}s"
-                        )
-                    else:
-                        st.error(
-                            f"API Error {response.status_code}: {response.text}"
-                        )
+        with st.spinner("Sending request to API..."):
+            try:
+                response = call_modal_api(payload)
 
-                except Exception as e:
-                    st.error("Connection to API failed")
-                    st.exception(e)
+                if response.status_code == 200:
+                    data = response.json()
+                    st.session_state["results"] = data
+                    st.success(
+                        f"Success! Time: {response.elapsed.total_seconds():.2f}s"
+                    )
+                else:
+                    st.error(
+                        f"API Error {response.status_code}: {response.text}"
+                    )
+
+            except Exception as e:
+                st.error("Connection to API failed")
+                st.exception(e)
+
+        # --- Commented out Simulate Button ---
+        # if st.button("Simulate Request"):
+        #     img_byte_arr = io.BytesIO()
+        #     img.save(img_byte_arr, format="JPEG", quality=85)
+        #     payload = img_byte_arr.getvalue()
+        #
+        #     st.write(f"Payload size: {len(payload) / 1024:.1f} KB")
+        #
+        #     with st.spinner("Sending request to API..."):
+        #         try:
+        #             response = call_modal_api(payload)
+        #
+        #             if response.status_code == 200:
+        #                 data = response.json()
+        #                 st.session_state["results"] = data
+        #                 st.success(
+        #                     f"Success! Time: {response.elapsed.total_seconds():.2f}s"
+        #                 )
+        #             else:
+        #                 st.error(
+        #                     f"API Error {response.status_code}: {response.text}"
+        #                 )
+        #
+        #         except Exception as e:
+        #             st.error("Connection to API failed")
+        #             st.exception(e)
 
 with col2:
     st.subheader("Server Response (API Output)")
@@ -199,8 +230,8 @@ with col2:
             st.caption(f"rotation_ccw_steps: {rotation_steps_raw}")
 
         # 2️⃣ Bounding box visualization
-        if uploaded and "detections" in res:
-            debug_img = img.copy()
+        if "img" in st.session_state and "detections" in res:
+            debug_img = st.session_state["img"].copy()
             rotation_steps = int(res.get("rotation_ccw_steps") or 0)
             rotation_steps = rotation_steps % 4
             if rotation_steps:
