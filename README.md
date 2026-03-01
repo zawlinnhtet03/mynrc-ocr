@@ -1,4 +1,4 @@
-# Official Inference Interface for MMNRC OCR Paper
+# Official Inference Interface for MyNRC-OCR Paper
 
 ## Overview
 This repository hosts a lightweight UI used to validate the proprietary Dinger MMNRC OCR model API. It is designed for internal QA and partner handoffs so stakeholders can upload sample NRC images, observe the parsed fields, and review detection overlays without needing access to the underlying model artifacts or backend service code.
