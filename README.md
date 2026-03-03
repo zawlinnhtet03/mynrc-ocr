@@ -11,7 +11,7 @@ Accurate OCR for Myanmar's National Registration Cards (NRCs) is essential for d
 To support partial reproducibility and foster ongoing research in low-resource OCR, we have provided the following core pipeline notebooks:
 
 * **`preprocessing.ipynb`**: Demonstrates the image and text preparation pipeline. This includes the logic for OpenCV-based image cleaning (Otsu thresholding, morphological operations), label normalization using `unicodedata` and `regex` (standardizing to Unicode NFC, stripping zero-width characters), and spatial/photometric data augmentations via Albumentations.
-* **`sanitized_training.ipynb`**: Contains the Hugging Face `Seq2SeqTrainer` configuration for fine-tuning the TrOCR model. This notebook includes the exact model architecture (ViT encoder + SEA-LION BERT decoder) and hyperparameters described in Section III.B of our paper (e.g., FP16 mixed-precision, gradient accumulation of 4, 30 epochs, 1e-5 learning rate). 
+* **`train_public.ipynb`**: Contains the Hugging Face `Seq2SeqTrainer` configuration for fine-tuning the TrOCR model. This notebook includes the exact model architecture (ViT encoder + SEA-LION BERT decoder) and hyperparameters described in Section III.B of our paper (e.g., FP16 mixed-precision, gradient accumulation of 4, 30 epochs, 1e-5 learning rate). 
 
 ## Dataset & Privacy Notice
 
