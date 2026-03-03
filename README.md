@@ -21,7 +21,7 @@ To enable researchers to test the preprocessing and training pipelines, we are p
 
 This synthetic dataset mimics the statistical distribution, morphological complexity, and background artifacts of the original data without exposing any real Personally Identifiable Information (PII) or violating user consent.
 
-*Note: In `sanitized_training.ipynb`, proprietary database connectors and internal MLOps tracking hooks have been removed to comply with company security policies. The core machine learning logic remains fully intact.*
+*Note: In `train_public.ipynb`, proprietary database connectors and internal MLOps tracking hooks have been removed to comply with company security policies. The core machine learning logic remains fully intact.*
 
 ## Live Demonstration
 
