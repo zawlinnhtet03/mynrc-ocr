@@ -1,6 +1,8 @@
 import io
 import os
 import time
+import re
+import unicodedata
 
 import requests
 import streamlit as st
@@ -121,6 +123,21 @@ with st.sidebar:
 
 col1, col2 = st.columns(2)
 
+
+def extract_final_nrc_id(text: str | None) -> str | None:
+    if not text:
+        return None
+    s = unicodedata.normalize("NFC", str(text))
+    s = s.replace("（", "(").replace("）", ")").replace("[", "(").replace("]", ")")
+
+    # Keep only the core NRC id structure, e.g. 12/XXX(နိုင်)123456
+    m = re.search(r"([0-9၀-၉]{1,2}\s*/\s*[^\s()/]+\s*\([^)]*\)\s*[0-9၀-၉]{6})", s)
+    if m:
+        return f"အမှတ်: {m.group(1).strip()}"
+
+    # Fallback: if nothing matched, keep original text as-is.
+    return s.strip()
+
 def call_modal_api(payload):
     headers = {
         "Content-Type": "application/octet-stream"
@@ -218,7 +235,13 @@ with col2:
         res = st.session_state["results"]
 
         # 1️⃣ Parsed fields
-        fields = res.get("field_texts", {})
+        fields = dict(res.get("field_texts", {}))
+        raw_debug = res.get("raw_debug", {})
+
+        id_from_processed = fields.get("id")
+        id_from_raw = raw_debug.get("id") if isinstance(raw_debug, dict) else None
+        fields["id"] = extract_final_nrc_id(id_from_processed or id_from_raw)
+
         st.json(fields)
 
         rotation_steps_raw = res.get("rotation_ccw_steps", None)
