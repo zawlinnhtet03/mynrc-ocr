@@ -161,9 +161,7 @@ with col1:
         st.session_state["img"] = img
 
         # Run simulation automatically on upload
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format="JPEG", quality=85)
-        payload = img_byte_arr.getvalue()
+        payload = uploaded.getvalue()
 
         st.write(f"Payload size: {len(payload) / 1024:.1f} KB")
 
