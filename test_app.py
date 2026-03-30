@@ -121,6 +121,65 @@ with st.sidebar:
 
 col1, col2 = st.columns(2)
 
+
+def _normalize_bbox_xyxy(bbox, img_w: int, img_h: int):
+    """Return bbox as xyxy in pixel space, handling normalized and xywh inputs."""
+    x1, y1, x2, y2 = [float(v) for v in bbox]
+
+    # Handle normalized coordinates.
+    if max(abs(x1), abs(y1), abs(x2), abs(y2)) <= 1.5:
+        x1 *= img_w
+        x2 *= img_w
+        y1 *= img_h
+        y2 *= img_h
+
+    # Handle xywh format.
+    if x2 <= x1 or y2 <= y1:
+        x2 = x1 + x2
+        y2 = y1 + y2
+
+    # Ensure ordered coordinates.
+    if x1 > x2:
+        x1, x2 = x2, x1
+    if y1 > y2:
+        y1, y2 = y2, y1
+
+    # Clamp to image bounds.
+    x1 = max(0.0, min(x1, float(img_w)))
+    y1 = max(0.0, min(y1, float(img_h)))
+    x2 = max(0.0, min(x2, float(img_w)))
+    y2 = max(0.0, min(y2, float(img_h)))
+
+    return x1, y1, x2, y2
+
+
+def _rotate_point_ccw(x: float, y: float, w: int, h: int, steps: int):
+    steps = steps % 4
+    if steps == 0:
+        return x, y
+    if steps == 1:
+        return y, (w - 1) - x
+    if steps == 2:
+        return (w - 1) - x, (h - 1) - y
+    return (h - 1) - y, x
+
+
+def _rotate_bbox_ccw_xyxy(x1: float, y1: float, x2: float, y2: float, w: int, h: int, steps: int):
+    """Rotate an xyxy bbox around image origin for k*90deg CCW and return xyxy."""
+    steps = steps % 4
+    if steps == 0:
+        return x1, y1, x2, y2
+
+    corners = [
+        _rotate_point_ccw(x1, y1, w, h, steps),
+        _rotate_point_ccw(x2, y1, w, h, steps),
+        _rotate_point_ccw(x1, y2, w, h, steps),
+        _rotate_point_ccw(x2, y2, w, h, steps),
+    ]
+    xs = [pt[0] for pt in corners]
+    ys = [pt[1] for pt in corners]
+    return min(xs), min(ys), max(xs), max(ys)
+
 def call_modal_api(payload):
     headers = {
         "Content-Type": "application/octet-stream"
@@ -238,10 +297,11 @@ with col2:
                 debug_img = debug_img.rotate(90 * rotation_steps, expand=True)
             draw = ImageDraw.Draw(debug_img)
 
-            request_width, request_height = st.session_state.get(
+            source_width, source_height = st.session_state.get(
                 "api_request_size", st.session_state["img"].size
             )
 
+            request_width, request_height = source_width, source_height
             if rotation_steps % 2 == 1:
                 request_width, request_height = request_height, request_width
 
@@ -250,6 +310,15 @@ with col2:
 
             for det in res["detections"]:
                 x1, y1, x2, y2 = det["bbox"]
+                x1, y1, x2, y2 = _normalize_bbox_xyxy(
+                    (x1, y1, x2, y2), source_width, source_height
+                )
+
+                # API boxes are usually in pre-rotation space; rotate them to the shown debug image.
+                x1, y1, x2, y2 = _rotate_bbox_ccw_xyxy(
+                    x1, y1, x2, y2, source_width, source_height, rotation_steps
+                )
+
                 sx1 = int(round(x1 * scale_x))
                 sy1 = int(round(y1 * scale_y))
                 sx2 = int(round(x2 * scale_x))
