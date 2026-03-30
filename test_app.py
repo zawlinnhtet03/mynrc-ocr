@@ -288,6 +288,11 @@ with col2:
         else:
             st.caption(f"rotation_ccw_steps: {rotation_steps_raw}")
 
+        if res.get("detection_image_size"):
+            st.caption(f"detection_image_size: {res.get('detection_image_size')}")
+        if res.get("detector_source"):
+            st.caption(f"detector_source: {res.get('detector_source')}")
+
         # 2️⃣ Bounding box visualization
         if "img" in st.session_state and "detections" in res:
             debug_img = st.session_state["img"].copy()
