@@ -301,9 +301,19 @@ with col2:
                 "api_request_size", st.session_state["img"].size
             )
 
-            request_width, request_height = source_width, source_height
-            if rotation_steps % 2 == 1:
-                request_width, request_height = request_height, request_width
+            detection_image_size = res.get("detection_image_size")
+            if (
+                isinstance(detection_image_size, list)
+                and len(detection_image_size) == 2
+                and detection_image_size[0]
+                and detection_image_size[1]
+            ):
+                request_width = float(detection_image_size[0])
+                request_height = float(detection_image_size[1])
+            else:
+                request_width, request_height = source_width, source_height
+                if rotation_steps % 2 == 1:
+                    request_width, request_height = request_height, request_width
 
             scale_x = debug_img.width / request_width if request_width else 1.0
             scale_y = debug_img.height / request_height if request_height else 1.0
@@ -311,12 +321,7 @@ with col2:
             for det in res["detections"]:
                 x1, y1, x2, y2 = det["bbox"]
                 x1, y1, x2, y2 = _normalize_bbox_xyxy(
-                    (x1, y1, x2, y2), source_width, source_height
-                )
-
-                # API boxes are usually in pre-rotation space; rotate them to the shown debug image.
-                x1, y1, x2, y2 = _rotate_bbox_ccw_xyxy(
-                    x1, y1, x2, y2, source_width, source_height, rotation_steps
+                    (x1, y1, x2, y2), int(request_width), int(request_height)
                 )
 
                 sx1 = int(round(x1 * scale_x))
