@@ -218,14 +218,8 @@ with col2:
         res = st.session_state["results"]
 
         # 1️⃣ Parsed fields
-        fields = res.get("field_texts", {}) or {}
-        display_fields = {
-            "id": fields.get("id"),
-            "name": fields.get("name"),
-            "father": fields.get("father"),
-            "dob": fields.get("dob"),
-        }
-        st.json(display_fields)
+        fields = res.get("field_texts", {})
+        st.json(fields)
 
         rotation_steps_raw = res.get("rotation_ccw_steps", None)
         if rotation_steps_raw is None:
