@@ -148,7 +148,8 @@ with col1:
     uploaded = st.file_uploader("Upload NRC", type=["jpg", "png", "jpeg"])
 
     if uploaded:
-        img = Image.open(uploaded).convert("RGB")
+        original_img = Image.open(io.BytesIO(uploaded.getvalue())).convert("RGB")
+        img = original_img.copy()
 
         # Resize image
         if max(img.size) > MAX_IMAGE_SIZE:
@@ -159,6 +160,7 @@ with col1:
         # Store uploaded file and img in session state for use in col2
         st.session_state["uploaded_file"] = uploaded
         st.session_state["img"] = img
+        st.session_state["api_request_size"] = original_img.size
 
         # Run simulation automatically on upload
         payload = uploaded.getvalue()
@@ -236,10 +238,25 @@ with col2:
                 debug_img = debug_img.rotate(90 * rotation_steps, expand=True)
             draw = ImageDraw.Draw(debug_img)
 
+            request_width, request_height = st.session_state.get(
+                "api_request_size", st.session_state["img"].size
+            )
+
+            if rotation_steps % 2 == 1:
+                request_width, request_height = request_height, request_width
+
+            scale_x = debug_img.width / request_width if request_width else 1.0
+            scale_y = debug_img.height / request_height if request_height else 1.0
+
             for det in res["detections"]:
                 x1, y1, x2, y2 = det["bbox"]
-                draw.rectangle([x1, y1, x2, y2], outline="red", width=3)
-                draw.text((x1, y1), det["label"], fill="red")
+                sx1 = int(round(x1 * scale_x))
+                sy1 = int(round(y1 * scale_y))
+                sx2 = int(round(x2 * scale_x))
+                sy2 = int(round(y2 * scale_y))
+
+                draw.rectangle([sx1, sy1, sx2, sy2], outline="red", width=3)
+                draw.text((sx1, sy1), det["label"], fill="red")
 
             st.image(
                 debug_img,
