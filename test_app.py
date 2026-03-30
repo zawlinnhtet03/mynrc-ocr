@@ -121,65 +121,6 @@ with st.sidebar:
 
 col1, col2 = st.columns(2)
 
-
-def _normalize_bbox_xyxy(bbox, img_w: int, img_h: int):
-    """Return bbox as xyxy in pixel space, handling normalized and xywh inputs."""
-    x1, y1, x2, y2 = [float(v) for v in bbox]
-
-    # Handle normalized coordinates.
-    if max(abs(x1), abs(y1), abs(x2), abs(y2)) <= 1.5:
-        x1 *= img_w
-        x2 *= img_w
-        y1 *= img_h
-        y2 *= img_h
-
-    # Handle xywh format.
-    if x2 <= x1 or y2 <= y1:
-        x2 = x1 + x2
-        y2 = y1 + y2
-
-    # Ensure ordered coordinates.
-    if x1 > x2:
-        x1, x2 = x2, x1
-    if y1 > y2:
-        y1, y2 = y2, y1
-
-    # Clamp to image bounds.
-    x1 = max(0.0, min(x1, float(img_w)))
-    y1 = max(0.0, min(y1, float(img_h)))
-    x2 = max(0.0, min(x2, float(img_w)))
-    y2 = max(0.0, min(y2, float(img_h)))
-
-    return x1, y1, x2, y2
-
-
-def _rotate_point_ccw(x: float, y: float, w: int, h: int, steps: int):
-    steps = steps % 4
-    if steps == 0:
-        return x, y
-    if steps == 1:
-        return y, (w - 1) - x
-    if steps == 2:
-        return (w - 1) - x, (h - 1) - y
-    return (h - 1) - y, x
-
-
-def _rotate_bbox_ccw_xyxy(x1: float, y1: float, x2: float, y2: float, w: int, h: int, steps: int):
-    """Rotate an xyxy bbox around image origin for k*90deg CCW and return xyxy."""
-    steps = steps % 4
-    if steps == 0:
-        return x1, y1, x2, y2
-
-    corners = [
-        _rotate_point_ccw(x1, y1, w, h, steps),
-        _rotate_point_ccw(x2, y1, w, h, steps),
-        _rotate_point_ccw(x1, y2, w, h, steps),
-        _rotate_point_ccw(x2, y2, w, h, steps),
-    ]
-    xs = [pt[0] for pt in corners]
-    ys = [pt[1] for pt in corners]
-    return min(xs), min(ys), max(xs), max(ys)
-
 def call_modal_api(payload):
     headers = {
         "Content-Type": "application/octet-stream"
@@ -207,8 +148,7 @@ with col1:
     uploaded = st.file_uploader("Upload NRC", type=["jpg", "png", "jpeg"])
 
     if uploaded:
-        original_img = Image.open(io.BytesIO(uploaded.getvalue())).convert("RGB")
-        img = original_img.copy()
+        img = Image.open(uploaded).convert("RGB")
 
         # Resize image
         if max(img.size) > MAX_IMAGE_SIZE:
@@ -219,7 +159,6 @@ with col1:
         # Store uploaded file and img in session state for use in col2
         st.session_state["uploaded_file"] = uploaded
         st.session_state["img"] = img
-        st.session_state["api_request_size"] = original_img.size
 
         # Run simulation automatically on upload
         payload = uploaded.getvalue()
@@ -288,11 +227,6 @@ with col2:
         else:
             st.caption(f"rotation_ccw_steps: {rotation_steps_raw}")
 
-        if res.get("detection_image_size"):
-            st.caption(f"detection_image_size: {res.get('detection_image_size')}")
-        if res.get("detector_source"):
-            st.caption(f"detector_source: {res.get('detector_source')}")
-
         # 2️⃣ Bounding box visualization
         if "img" in st.session_state and "detections" in res:
             debug_img = st.session_state["img"].copy()
@@ -302,40 +236,10 @@ with col2:
                 debug_img = debug_img.rotate(90 * rotation_steps, expand=True)
             draw = ImageDraw.Draw(debug_img)
 
-            source_width, source_height = st.session_state.get(
-                "api_request_size", st.session_state["img"].size
-            )
-
-            detection_image_size = res.get("detection_image_size")
-            if (
-                isinstance(detection_image_size, list)
-                and len(detection_image_size) == 2
-                and detection_image_size[0]
-                and detection_image_size[1]
-            ):
-                request_width = float(detection_image_size[0])
-                request_height = float(detection_image_size[1])
-            else:
-                request_width, request_height = source_width, source_height
-                if rotation_steps % 2 == 1:
-                    request_width, request_height = request_height, request_width
-
-            scale_x = debug_img.width / request_width if request_width else 1.0
-            scale_y = debug_img.height / request_height if request_height else 1.0
-
             for det in res["detections"]:
                 x1, y1, x2, y2 = det["bbox"]
-                x1, y1, x2, y2 = _normalize_bbox_xyxy(
-                    (x1, y1, x2, y2), int(request_width), int(request_height)
-                )
-
-                sx1 = int(round(x1 * scale_x))
-                sy1 = int(round(y1 * scale_y))
-                sx2 = int(round(x2 * scale_x))
-                sy2 = int(round(y2 * scale_y))
-
-                draw.rectangle([sx1, sy1, sx2, sy2], outline="red", width=3)
-                draw.text((sx1, sy1), det["label"], fill="red")
+                draw.rectangle([x1, y1, x2, y2], outline="red", width=3)
+                draw.text((x1, y1), det["label"], fill="red")
 
             st.image(
                 debug_img,
