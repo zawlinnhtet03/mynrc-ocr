@@ -4,7 +4,7 @@ import time
 
 import requests
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageDraw
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
@@ -105,7 +105,7 @@ MAX_IMAGE_SIZE = 1024  # px
 REQUEST_TIMEOUT = 60   # seconds
 RETRIES = 2
 
-st.title("Dinger KYC • API Integration Test v1")
+st.title("Dinger KYC • API Integration Test")
 
 ensure_authenticated()
 
@@ -149,7 +149,6 @@ with col1:
 
     if uploaded:
         img = Image.open(uploaded).convert("RGB")
-        orig_w, orig_h = img.size
 
         # Resize image
         if max(img.size) > MAX_IMAGE_SIZE:
@@ -160,10 +159,11 @@ with col1:
         # Store uploaded file and img in session state for use in col2
         st.session_state["uploaded_file"] = uploaded
         st.session_state["img"] = img
-        st.session_state["orig_size"] = (orig_w, orig_h)
 
         # Run simulation automatically on upload
-        payload = uploaded.getvalue()
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format="JPEG", quality=85)
+        payload = img_byte_arr.getvalue()
 
         st.write(f"Payload size: {len(payload) / 1024:.1f} KB")
 
@@ -220,14 +220,8 @@ with col2:
         res = st.session_state["results"]
 
         # 1️⃣ Parsed fields
-        fields = res.get("field_texts", {}) or {}
-        display_fields = {
-            "id": fields.get("id"),
-            "name": fields.get("name"),
-            "father": fields.get("father"),
-            "dob": fields.get("dob"),
-        }
-        st.json(display_fields)
+        fields = res.get("field_texts", {})
+        st.json(fields)
 
         rotation_steps_raw = res.get("rotation_ccw_steps", None)
         if rotation_steps_raw is None:
@@ -235,16 +229,22 @@ with col2:
         else:
             st.caption(f"rotation_ccw_steps: {rotation_steps_raw}")
 
-        # 2️⃣ Server image preview (no bounding boxes)
-        if "img" in st.session_state:
+        # 2️⃣ Bounding box visualization
+        if "img" in st.session_state and "detections" in res:
             debug_img = st.session_state["img"].copy()
             rotation_steps = int(res.get("rotation_ccw_steps") or 0)
             rotation_steps = rotation_steps % 4
             if rotation_steps:
                 debug_img = debug_img.rotate(90 * rotation_steps, expand=True)
+            draw = ImageDraw.Draw(debug_img)
+
+            for det in res["detections"]:
+                x1, y1, x2, y2 = det["bbox"]
+                draw.rectangle([x1, y1, x2, y2], outline="red", width=3)
+                draw.text((x1, y1), det["label"], fill="red")
 
             st.image(
                 debug_img,
-                caption="Server Image (No Bounding Boxes)",
+                caption="Server Vision Debug",
                 use_column_width=True
             )
