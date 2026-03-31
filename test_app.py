@@ -149,6 +149,7 @@ with col1:
 
     if uploaded:
         img = Image.open(uploaded).convert("RGB")
+        orig_w, orig_h = img.size
 
         # Resize image
         if max(img.size) > MAX_IMAGE_SIZE:
@@ -159,6 +160,7 @@ with col1:
         # Store uploaded file and img in session state for use in col2
         st.session_state["uploaded_file"] = uploaded
         st.session_state["img"] = img
+        st.session_state["orig_size"] = (orig_w, orig_h)
 
         # Run simulation automatically on upload
         payload = uploaded.getvalue()
@@ -218,8 +220,14 @@ with col2:
         res = st.session_state["results"]
 
         # 1️⃣ Parsed fields
-        fields = res.get("field_texts", {})
-        st.json(fields)
+        fields = res.get("field_texts", {}) or {}
+        display_fields = {
+            "id": fields.get("id"),
+            "name": fields.get("name"),
+            "father": fields.get("father"),
+            "dob": fields.get("dob"),
+        }
+        st.json(display_fields)
 
         rotation_steps_raw = res.get("rotation_ccw_steps", None)
         if rotation_steps_raw is None:
@@ -236,10 +244,34 @@ with col2:
                 debug_img = debug_img.rotate(90 * rotation_steps, expand=True)
             draw = ImageDraw.Draw(debug_img)
 
+            # Server detections are in coordinates of the original uploaded image
+            # (after server-side rotation), while debug_img may be a resized preview.
+            orig_w, orig_h = st.session_state.get("orig_size", debug_img.size)
+            if rotation_steps % 2 == 1:
+                src_w, src_h = orig_h, orig_w
+            else:
+                src_w, src_h = orig_w, orig_h
+            scale_x = debug_img.width / max(1, src_w)
+            scale_y = debug_img.height / max(1, src_h)
+
+            # Draw one box per target field (highest confidence), matching OCR usage.
+            wanted_labels = {"id", "name", "father", "dob"}
+            best_by_label = {}
             for det in res["detections"]:
+                label = det.get("label")
+                if label not in wanted_labels:
+                    continue
+                conf = float(det.get("conf", 0.0))
+                prev = best_by_label.get(label)
+                if prev is None or conf > float(prev.get("conf", 0.0)):
+                    best_by_label[label] = det
+
+            for det in best_by_label.values():
                 x1, y1, x2, y2 = det["bbox"]
-                draw.rectangle([x1, y1, x2, y2], outline="red", width=3)
-                draw.text((x1, y1), det["label"], fill="red")
+                sx1, sy1 = int(round(x1 * scale_x)), int(round(y1 * scale_y))
+                sx2, sy2 = int(round(x2 * scale_x)), int(round(y2 * scale_y))
+                draw.rectangle([sx1, sy1, sx2, sy2], outline="red", width=3)
+                draw.text((sx1, sy1), det["label"], fill="red")
 
             st.image(
                 debug_img,
