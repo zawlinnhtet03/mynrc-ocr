@@ -105,7 +105,7 @@ MAX_IMAGE_SIZE = 1024  # px
 REQUEST_TIMEOUT = 60   # seconds
 RETRIES = 2
 
-st.title("Dinger KYC • API Integration Test")
+st.title("Dinger KYC • API Integration Test v1")
 
 ensure_authenticated()
 
