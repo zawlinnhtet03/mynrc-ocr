@@ -154,7 +154,7 @@ with col1:
         if max(img.size) > MAX_IMAGE_SIZE:
             img.thumbnail((MAX_IMAGE_SIZE, MAX_IMAGE_SIZE))
 
-        st.image(img, caption="Input Image", use_column_width=True)
+        st.image(img, caption="Input Image", use_container_width=True)
 
         # Store uploaded file and img in session state for use in col2
         st.session_state["uploaded_file"] = uploaded
@@ -246,5 +246,5 @@ with col2:
             st.image(
                 debug_img,
                 caption="Server Vision Debug",
-                use_column_width=True
+                use_container_width=True
             )
