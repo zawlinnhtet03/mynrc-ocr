@@ -4,7 +4,7 @@ import time
 
 import requests
 import streamlit as st
-from PIL import Image, ImageDraw
+from PIL import Image
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
@@ -235,46 +235,16 @@ with col2:
         else:
             st.caption(f"rotation_ccw_steps: {rotation_steps_raw}")
 
-        # 2️⃣ Bounding box visualization
-        if "img" in st.session_state and "detections" in res:
+        # 2️⃣ Server image preview (no bounding boxes)
+        if "img" in st.session_state:
             debug_img = st.session_state["img"].copy()
             rotation_steps = int(res.get("rotation_ccw_steps") or 0)
             rotation_steps = rotation_steps % 4
             if rotation_steps:
                 debug_img = debug_img.rotate(90 * rotation_steps, expand=True)
-            draw = ImageDraw.Draw(debug_img)
-
-            # Server detections are in coordinates of the original uploaded image
-            # (after server-side rotation), while debug_img may be a resized preview.
-            orig_w, orig_h = st.session_state.get("orig_size", debug_img.size)
-            if rotation_steps % 2 == 1:
-                src_w, src_h = orig_h, orig_w
-            else:
-                src_w, src_h = orig_w, orig_h
-            scale_x = debug_img.width / max(1, src_w)
-            scale_y = debug_img.height / max(1, src_h)
-
-            # Draw one box per target field (highest confidence), matching OCR usage.
-            wanted_labels = {"id", "name", "father", "dob"}
-            best_by_label = {}
-            for det in res["detections"]:
-                label = det.get("label")
-                if label not in wanted_labels:
-                    continue
-                conf = float(det.get("conf", 0.0))
-                prev = best_by_label.get(label)
-                if prev is None or conf > float(prev.get("conf", 0.0)):
-                    best_by_label[label] = det
-
-            for det in best_by_label.values():
-                x1, y1, x2, y2 = det["bbox"]
-                sx1, sy1 = int(round(x1 * scale_x)), int(round(y1 * scale_y))
-                sx2, sy2 = int(round(x2 * scale_x)), int(round(y2 * scale_y))
-                draw.rectangle([sx1, sy1, sx2, sy2], outline="red", width=3)
-                draw.text((sx1, sy1), det["label"], fill="red")
 
             st.image(
                 debug_img,
-                caption="Server Vision Debug",
+                caption="Server Image (No Bounding Boxes)",
                 use_column_width=True
             )
